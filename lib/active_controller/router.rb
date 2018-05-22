@@ -37,7 +37,7 @@ class Router
     self.instance_eval(&proc)
   end
 
-  [:get, :post, :put, :delete].each do |http_method|
+  [:get, :post, :put, :patch, :delete].each do |http_method|
     define_method(http_method) do |pattern, controller_class, action_name|
       add_route(pattern, http_method, controller_class, action_name)
     end
