@@ -9,12 +9,12 @@ class ActiveModel
 
   def self.columns
     return @columns if @columns
-    columns = DBConnection.execute2(<<-SQL).first
+    result = DBConnection.execute(<<-SQL)
       SELECT *
       FROM #{self.table_name}
       LIMIT 0
     SQL
-    @columns = columns.map(&:to_sym)
+    @columns = result.fields.map(&:to_sym)
   end
 
   def self.finalize!
@@ -78,25 +78,28 @@ class ActiveModel
   end
 
   def insert
-    columns = self.class.columns.drop(1)
-    col_names = columns.map(&:to_s).join(", ")
-    question_marks = (["?"] * columns.count).join(", ")
+    cols = self.class.columns.drop(1)
+    col_names = cols.map(&:to_s).join(", ")
+    question_marks = (["?"] * cols.count).join(", ")
 
-    DBConnection.execute(<<-SQL, *attribute_values.drop(1))
+    id = DBConnection.execute(<<-SQL, attribute_values.drop(1))
       INSERT INTO
         #{self.class.table_name} (#{col_names})
       VALUES
         (#{question_marks})
+      RETURNING
+        id
     SQL
 
-    self.id = DBConnection.last_insert_row_id
+    self.id = id
+    self
   end
 
   def update
-    values = self.class.columns
-      .map { |column| "#{column} = ?" }.join(", ")
+    cols = self.class.columns.drop(1)
+    values = cols.map { |col| "#{col} = ?" }.join(", ")
 
-    DBConnection.execute(<<-SQL, *attribute_values, id)
+    DBConnection.execute(<<-SQL, attribute_values.rotate)
       UPDATE
         #{self.class.table_name}
       SET
